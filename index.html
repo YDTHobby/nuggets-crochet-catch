@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Nugget's Crochet Catch</title>
+  <style>
+    body {
+      margin: 0;
+      overflow: hidden;
+      background: #ffefd5;
+    }
+    canvas {
+      display: block;
+      margin: 0 auto;
+      background-color: #fff8dc;
+      border: 2px solid #333;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="gameCanvas" width="400" height="600"></canvas>
+
+  <script>
+    const canvas = document.getElementById("gameCanvas");
+    const ctx = canvas.getContext("2d");
+
+    // Load Nugget Image
+    const nuggetImg = new Image();
+    nuggetImg.src = "nugget_front.png"; // Replace with your front-facing Nugget image path
+
+    // Load Yarn Image
+    const yarnImg = new Image();
+    yarnImg.src = "yarn.png"; // Replace with your yarn image path
+
+    let nugget = {
+      x: 160,
+      y: 500,
+      width: 80,
+      height: 80,
+      speed: 5
+    };
+
+    let yarns = [];
+    let score = 0;
+    let misses = 0;
+    const maxMisses = 3;
+
+    function spawnYarn() {
+      let x = Math.random() * (canvas.width - 40);
+      yarns.push({ x: x, y: -40, width: 40, height: 40, speed: 2 + Math.random() * 2 });
+    }
+
+    function drawNugget() {
+      ctx.drawImage(nuggetImg, nugget.x, nugget.y, nugget.width, nugget.height);
+    }
+
+    function drawYarns() {
+      yarns.forEach(yarn => {
+        ctx.drawImage(yarnImg, yarn.x, yarn.y, yarn.width, yarn.height);
+      });
+    }
+
+    function updateYarns() {
+      yarns.forEach((yarn, index) => {
+        yarn.y += yarn.speed;
+        if (yarn.y > canvas.height) {
+          yarns.splice(index, 1);
+          misses++;
+        }
+
+        if (
+          yarn.x < nugget.x + nugget.width &&
+          yarn.x + yarn.width > nugget.x &&
+          yarn.y < nugget.y + nugget.height &&
+          yarn.y + yarn.height > nugget.y
+        ) {
+          yarns.splice(index, 1);
+          score++;
+        }
+      });
+    }
+
+    function drawScore() {
+      ctx.fillStyle = "#000";
+      ctx.font = "20px Arial";
+      ctx.fillText("Score: " + score, 10, 25);
+      ctx.fillText("Misses: " + misses, 10, 50);
+    }
+
+    function gameOver() {
+      ctx.fillStyle = "rgba(0, 0, 0, 0.7)";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = "#fff";
+      ctx.font = "30px Arial";
+      ctx.fillText("Game Over!", 120, 300);
+      ctx.fillText("Score: " + score, 140, 350);
+    }
+
+    let keys = {};
+    document.addEventListener("keydown", e => keys[e.key] = true);
+    document.addEventListener("keyup", e => keys[e.key] = false);
+
+    function gameLoop() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      if (misses < maxMisses) {
+        if (keys["ArrowLeft"] && nugget.x > 0) nugget.x -= nugget.speed;
+        if (keys["ArrowRight"] && nugget.x < canvas.width - nugget.width) nugget.x += nugget.speed;
+
+        drawNugget();
+        drawYarns();
+        updateYarns();
+        drawScore();
+
+        requestAnimationFrame(gameLoop);
+      } else {
+        gameOver();
+      }
+    }
+
+    setInterval(spawnYarn, 1000);
+    nuggetImg.onload = () => gameLoop();
+  </script>
+</body>
+</html>
