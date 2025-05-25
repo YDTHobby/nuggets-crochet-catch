@@ -7,7 +7,8 @@
     body {
       margin: 0;
       overflow: hidden;
-      background: #ffefd5;
+      background: #fff8dc;
+      font-family: 'Arial', sans-serif;
     }
     canvas {
       display: block;
@@ -19,44 +20,78 @@
 </head>
 <body>
   <canvas id="gameCanvas" width="400" height="600"></canvas>
-
   <script>
     const canvas = document.getElementById("gameCanvas");
     const ctx = canvas.getContext("2d");
 
-    // Load Nugget Image
-    const nuggetImg = new Image();
-    nuggetImg.src = "nugget_front.png"; // Replace with your front-facing Nugget image path
+    const nuggetIdle = new Image();
+    nuggetIdle.src = "nugget_idle.png";
 
-    // Load Yarn Image
-    const yarnImg = new Image();
-    yarnImg.src = "yarn.png"; // Replace with your yarn image path
+    const nuggetFlap1 = new Image();
+    nuggetFlap1.src = "nugget_flap1.png";
+
+    const nuggetFlap2 = new Image();
+    nuggetFlap2.src = "nugget_flap2.png";
+
+    const yarnBlue = new Image();
+    yarnBlue.src = "yarn_blue.png";
+
+    const yarnGold = new Image();
+    yarnGold.src = "yarn_gold.png";
+
+    const yarnRed = new Image();
+    yarnRed.src = "yarn_red.png";
+
+    const sparkle = new Image();
+    sparkle.src = "sparkle.png";
 
     let nugget = {
       x: 160,
       y: 500,
       width: 80,
       height: 80,
-      speed: 5
+      vx: 0,
+      speed: 0.5,
+      maxSpeed: 5,
+      friction: 0.9,
+      animationFrame: 0,
+      frameCount: 0
     };
 
     let yarns = [];
+    let particles = [];
     let score = 0;
     let misses = 0;
     const maxMisses = 3;
+    let flashRed = 0;
 
     function spawnYarn() {
-      let x = Math.random() * (canvas.width - 40);
-      yarns.push({ x: x, y: -40, width: 40, height: 40, speed: 2 + Math.random() * 2 });
+      let rand = Math.random();
+      let type = rand < 0.1 ? 'gold' : (rand < 0.2 ? 'red' : 'blue');
+      yarns.push({
+        x: Math.random() * (canvas.width - 40),
+        y: -40,
+        width: 40,
+        height: 40,
+        speed: 2 + Math.random() * 2,
+        type: type
+      });
     }
 
     function drawNugget() {
-      ctx.drawImage(nuggetImg, nugget.x, nugget.y, nugget.width, nugget.height);
+      let img = nuggetIdle;
+      if (nugget.animationFrame === 1) img = nuggetFlap1;
+      else if (nugget.animationFrame === 2) img = nuggetFlap2;
+
+      ctx.drawImage(img, nugget.x, nugget.y, nugget.width, nugget.height);
     }
 
     function drawYarns() {
       yarns.forEach(yarn => {
-        ctx.drawImage(yarnImg, yarn.x, yarn.y, yarn.width, yarn.height);
+        let img = yarnBlue;
+        if (yarn.type === 'gold') img = yarnGold;
+        if (yarn.type === 'red') img = yarnRed;
+        ctx.drawImage(img, yarn.x, yarn.y, yarn.width, yarn.height);
       });
     }
 
@@ -74,9 +109,30 @@
           yarn.y < nugget.y + nugget.height &&
           yarn.y + yarn.height > nugget.y
         ) {
+          if (yarn.type === 'gold') {
+            score += 5;
+            particles.push({ x: yarn.x + 20, y: yarn.y + 20, life: 30 });
+          } else if (yarn.type === 'red') {
+            score = Math.max(0, score - 1);
+            flashRed = 10;
+          } else {
+            score++;
+            particles.push({ x: yarn.x + 20, y: yarn.y + 20, life: 30 });
+          }
+          nugget.animationFrame = 1;
+          nugget.frameCount = 10;
           yarns.splice(index, 1);
-          score++;
         }
+      });
+    }
+
+    function drawParticles() {
+      particles.forEach((p, i) => {
+        ctx.globalAlpha = p.life / 30;
+        ctx.drawImage(sparkle, p.x - 16, p.y - 16, 32, 32);
+        p.life--;
+        if (p.life <= 0) particles.splice(i, 1);
+        ctx.globalAlpha = 1;
       });
     }
 
@@ -101,15 +157,34 @@
     document.addEventListener("keyup", e => keys[e.key] = false);
 
     function gameLoop() {
+      if (flashRed > 0) {
+        canvas.style.backgroundColor = '#ffcccc';
+        flashRed--;
+      } else {
+        canvas.style.backgroundColor = '#fff8dc';
+      }
+
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
       if (misses < maxMisses) {
-        if (keys["ArrowLeft"] && nugget.x > 0) nugget.x -= nugget.speed;
-        if (keys["ArrowRight"] && nugget.x < canvas.width - nugget.width) nugget.x += nugget.speed;
+        if (keys["ArrowLeft"]) nugget.vx -= nugget.speed;
+        if (keys["ArrowRight"]) nugget.vx += nugget.speed;
+
+        nugget.vx *= nugget.friction;
+        nugget.x += nugget.vx;
+        if (nugget.x < 0) nugget.x = 0;
+        if (nugget.x > canvas.width - nugget.width) nugget.x = canvas.width - nugget.width;
+
+        if (nugget.frameCount > 0) {
+          nugget.frameCount--;
+          if (nugget.frameCount === 5) nugget.animationFrame = 2;
+          if (nugget.frameCount === 0) nugget.animationFrame = 0;
+        }
 
         drawNugget();
         drawYarns();
         updateYarns();
+        drawParticles();
         drawScore();
 
         requestAnimationFrame(gameLoop);
@@ -119,7 +194,7 @@
     }
 
     setInterval(spawnYarn, 1000);
-    nuggetImg.onload = () => gameLoop();
+    nuggetIdle.onload = () => gameLoop();
   </script>
 </body>
 </html>
