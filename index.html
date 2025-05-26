@@ -15,13 +15,28 @@
       background-color: #fff8dc;
       border: 2px solid #333;
     }
+    #startButton {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      padding: 16px 32px;
+      font-size: 20px;
+      background-color: #f9c5d1;
+      border: 2px solid #333;
+      border-radius: 8px;
+      cursor: pointer;
+      z-index: 10;
+    }
   </style>
 </head>
 <body>
+  <button id="startButton">Start Game</button>
   <canvas id="gameCanvas" width="512" height="512"></canvas>
   <script>
     const canvas = document.getElementById("gameCanvas");
     const ctx = canvas.getContext("2d");
+    const startButton = document.getElementById("startButton");
 
     const TILE_SIZE = 32;
     const ROWS = 16;
@@ -66,6 +81,8 @@
       y: 1,
       dirX: 0,
       dirY: 0,
+      nextDirX: 0,
+      nextDirY: 0,
       moveCooldown: 0,
       invincible: 0
     };
@@ -80,6 +97,7 @@
     let score = 0;
     let timer = 0;
     let gameWon = false;
+    let gameStarted = false;
 
     function initYarns() {
       yarns = [];
@@ -148,36 +166,46 @@
         return;
       }
 
+      const canMoveTo = (x, y) => map[y][x] !== '#';
+
+      if (canMoveTo(player.x + player.nextDirX, player.y + player.nextDirY)) {
+        player.dirX = player.nextDirX;
+        player.dirY = player.nextDirY;
+      }
+
       let targetX = player.x + player.dirX;
       let targetY = player.y + player.dirY;
-      if (map[targetY][targetX] !== '#') {
+      if (canMoveTo(targetX, targetY)) {
         player.x = targetX;
         player.y = targetY;
         player.moveCooldown = 10;
       }
 
-      let collectedYarn = yarns.find(dot => dot.x === player.x && dot.y === player.y);
-      if (collectedYarn) {
-        yarns = yarns.filter(dot => !(dot.x === player.x && dot.y === player.y));
-        score++;
-        sfxYarn.play();
-      }
-
-      let collectedSpecial = specialYarns.find(dot => dot.x === player.x && dot.y === player.y);
-      if (collectedSpecial) {
-        specialYarns = specialYarns.filter(dot => !(dot.x === player.x && dot.y === player.y));
-        player.invincible = 300;
-        score += 5;
-        sfxSpecial.play();
-      }
-
       if (player.invincible > 0) player.invincible--;
+
+      yarns = yarns.filter(dot => {
+        if (dot.x === player.x && dot.y === player.y) {
+          score++;
+          sfxYarn.play();
+          return false;
+        }
+        return true;
+      });
+
+      specialYarns = specialYarns.filter(dot => {
+        if (dot.x === player.x && dot.y === player.y) {
+          player.invincible = 300;
+          score += 5;
+          sfxSpecial.play();
+          return false;
+        }
+        return true;
+      });
     }
 
     function updateEnemies() {
       enemies.forEach(e => {
         if (!e.alive) return;
-
         let choices = [
           { x: e.x + 1, y: e.y },
           { x: e.x - 1, y: e.y },
@@ -204,13 +232,15 @@
     }
 
     document.addEventListener("keydown", e => {
-      if (e.key === "ArrowUp") { player.dirX = 0; player.dirY = -1; }
-      if (e.key === "ArrowDown") { player.dirX = 0; player.dirY = 1; }
-      if (e.key === "ArrowLeft") { player.dirX = -1; player.dirY = 0; }
-      if (e.key === "ArrowRight") { player.dirX = 1; player.dirY = 0; }
+      if (e.key === "ArrowUp") { player.nextDirX = 0; player.nextDirY = -1; }
+      if (e.key === "ArrowDown") { player.nextDirX = 0; player.nextDirY = 1; }
+      if (e.key === "ArrowLeft") { player.nextDirX = -1; player.nextDirY = 0; }
+      if (e.key === "ArrowRight") { player.nextDirX = 1; player.nextDirY = 0; }
     });
 
     function gameLoop() {
+      if (!gameStarted) return;
+
       if (gameWon) {
         showVictory();
         return;
@@ -231,9 +261,11 @@
       requestAnimationFrame(gameLoop);
     }
 
-    nuggetImg.onload = () => {
+    startButton.onclick = () => {
+      startButton.style.display = "none";
       initYarns();
       bgMusic.play();
+      gameStarted = true;
       gameLoop();
     };
   </script>
