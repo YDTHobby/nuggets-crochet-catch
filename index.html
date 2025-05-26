@@ -75,7 +75,7 @@
 
     let player = {
       x: 1,
-      y: 3, // valid start tile
+      y: 3,
       dirX: 0,
       dirY: 0,
       nextDirX: 0,
@@ -87,8 +87,8 @@
     let yarns = [];
     let specialYarns = [];
     let enemies = [
-      { x: 7, y: 7, dirX: 0, dirY: -1, alive: true },
-      { x: 8, y: 7, dirX: 0, dirY: 1, alive: true }
+      { x: 7, y: 7, moveCooldown: 0, alive: true },
+      { x: 8, y: 7, moveCooldown: 0, alive: true }
     ];
 
     let score = 0;
@@ -203,17 +203,28 @@
     function updateEnemies() {
       enemies.forEach(e => {
         if (!e.alive) return;
-        let choices = [
-          { x: e.x + 1, y: e.y },
-          { x: e.x - 1, y: e.y },
-          { x: e.x, y: e.y + 1 },
-          { x: e.x, y: e.y - 1 }
-        ].filter(p => map[p.y][p.x] !== '#');
+        if (e.moveCooldown > 0) {
+          e.moveCooldown--;
+          return;
+        }
+        e.moveCooldown = 20; // slows down cats
 
-        if (choices.length > 0) {
-          let target = choices[Math.floor(Math.random() * choices.length)];
-          e.x = target.x;
-          e.y = target.y;
+        let dx = player.x - e.x;
+        let dy = player.y - e.y;
+
+        let options = [];
+        if (Math.abs(dx) > Math.abs(dy)) {
+          options = dx > 0 ? [{ x: e.x + 1, y: e.y }, { x: e.x, y: e.y + Math.sign(dy) }] : [{ x: e.x - 1, y: e.y }, { x: e.x, y: e.y + Math.sign(dy) }];
+        } else {
+          options = dy > 0 ? [{ x: e.x, y: e.y + 1 }, { x: e.x + Math.sign(dx), y: e.y }] : [{ x: e.x, y: e.y - 1 }, { x: e.x + Math.sign(dx), y: e.y }];
+        }
+
+        for (let p of options) {
+          if (map[p.y] && map[p.y][p.x] !== '#') {
+            e.x = p.x;
+            e.y = p.y;
+            break;
+          }
         }
 
         if (e.x === player.x && e.y === player.y) {
