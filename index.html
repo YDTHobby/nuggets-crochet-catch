@@ -29,45 +29,65 @@
 
     const map = [
       "################",
+      "#......##......#",
+      "#.####.##.####.#",
+      "#o............o#",
+      "#.####.##.####.#",
       "#..............#",
-      "#.####.####.#..#",
-      "#..............#",
-      "#.####.#.#######",
-      "#....#.#........",
-      "####.#.#########",
-      "#...............",
-      "#.#####.#######",
-      "#.....#.#.......",
-      "#####.#.#.#####",
-      "#..............#",
-      "#.#########.###",
-      "#..............#",
+      "####.#.##.#.####",
+      "####.#.##.#.####",
+      "####.#.##.#.####",
+      "#............#.#",
+      "#.####.##.####.#",
+      "#......##......#",
+      "#.####.##.####.#",
+      "#o............o#",
       "################"
     ];
 
     const nuggetImg = new Image();
-    nuggetImg.src = "nugget_idle.png"; // placeholder
-
+    nuggetImg.src = "nugget_idle.png";
     const yarnImg = new Image();
     yarnImg.src = "yarn_blue.png";
+    const specialYarnImg = new Image();
+    specialYarnImg.src = "yarn_gold.png";
+    const catImg = new Image();
+    catImg.src = "cat_enemy.png";
+
+    const sfxYarn = new Audio("yarn_collect.mp3");
+    const sfxSpecial = new Audio("powerup.mp3");
+    const sfxMeow = new Audio("meow.mp3");
+    const bgMusic = new Audio("bg_music.mp3");
+    bgMusic.loop = true;
+    bgMusic.volume = 0.3;
 
     let player = {
       x: 1,
       y: 1,
       dirX: 0,
       dirY: 0,
-      moveCooldown: 0
+      moveCooldown: 0,
+      invincible: 0
     };
 
     let yarns = [];
+    let specialYarns = [];
+    let enemies = [
+      { x: 7, y: 7, dirX: 0, dirY: -1, alive: true },
+      { x: 8, y: 7, dirX: 0, dirY: 1, alive: true }
+    ];
+
+    let score = 0;
+    let timer = 0;
+    let gameWon = false;
 
     function initYarns() {
       yarns = [];
+      specialYarns = [];
       for (let y = 0; y < map.length; y++) {
         for (let x = 0; x < map[y].length; x++) {
-          if (map[y][x] === '.') {
-            yarns.push({ x: x, y: y });
-          }
+          if (map[y][x] === '.') yarns.push({ x, y });
+          if (map[y][x] === 'o') specialYarns.push({ x, y });
         }
       }
     }
@@ -90,10 +110,36 @@
       yarns.forEach(dot => {
         ctx.drawImage(yarnImg, dot.x * TILE_SIZE + 8, dot.y * TILE_SIZE + 8, 16, 16);
       });
+      specialYarns.forEach(dot => {
+        ctx.drawImage(specialYarnImg, dot.x * TILE_SIZE + 8, dot.y * TILE_SIZE + 8, 16, 16);
+      });
     }
 
     function drawPlayer() {
       ctx.drawImage(nuggetImg, player.x * TILE_SIZE, player.y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+    }
+
+    function drawEnemies() {
+      enemies.forEach(e => {
+        if (e.alive) ctx.drawImage(catImg, e.x * TILE_SIZE, e.y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+      });
+    }
+
+    function drawHUD() {
+      ctx.fillStyle = "#000";
+      ctx.font = "18px Arial";
+      ctx.fillText("Score: " + score, 10, 20);
+      ctx.fillText("Time: " + Math.floor(timer / 60), 400, 20);
+    }
+
+    function showVictory() {
+      ctx.fillStyle = "rgba(0, 0, 0, 0.7)";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = "#fff";
+      ctx.font = "28px Arial";
+      ctx.fillText("🎉 You Win! 🎉", 150, 240);
+      ctx.font = "20px Arial";
+      ctx.fillText("Final Score: " + score, 180, 280);
     }
 
     function updatePlayer() {
@@ -107,11 +153,54 @@
       if (map[targetY][targetX] !== '#') {
         player.x = targetX;
         player.y = targetY;
-        player.moveCooldown = 10; // slows movement speed
+        player.moveCooldown = 10;
       }
 
-      // Collect yarn
-      yarns = yarns.filter(dot => !(dot.x === player.x && dot.y === player.y));
+      let collectedYarn = yarns.find(dot => dot.x === player.x && dot.y === player.y);
+      if (collectedYarn) {
+        yarns = yarns.filter(dot => !(dot.x === player.x && dot.y === player.y));
+        score++;
+        sfxYarn.play();
+      }
+
+      let collectedSpecial = specialYarns.find(dot => dot.x === player.x && dot.y === player.y);
+      if (collectedSpecial) {
+        specialYarns = specialYarns.filter(dot => !(dot.x === player.x && dot.y === player.y));
+        player.invincible = 300;
+        score += 5;
+        sfxSpecial.play();
+      }
+
+      if (player.invincible > 0) player.invincible--;
+    }
+
+    function updateEnemies() {
+      enemies.forEach(e => {
+        if (!e.alive) return;
+
+        let choices = [
+          { x: e.x + 1, y: e.y },
+          { x: e.x - 1, y: e.y },
+          { x: e.x, y: e.y + 1 },
+          { x: e.x, y: e.y - 1 }
+        ].filter(p => map[p.y][p.x] !== '#');
+
+        if (choices.length > 0) {
+          let target = choices[Math.floor(Math.random() * choices.length)];
+          e.x = target.x;
+          e.y = target.y;
+        }
+
+        if (e.x === player.x && e.y === player.y) {
+          if (player.invincible > 0) {
+            e.alive = false;
+            sfxMeow.play();
+          } else {
+            alert("Game Over! Nugget got caught!");
+            window.location.reload();
+          }
+        }
+      });
     }
 
     document.addEventListener("keydown", e => {
@@ -122,16 +211,29 @@
     });
 
     function gameLoop() {
+      if (gameWon) {
+        showVictory();
+        return;
+      }
+
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       drawMap();
       updatePlayer();
+      updateEnemies();
       drawYarns();
       drawPlayer();
+      drawEnemies();
+      drawHUD();
+
+      timer++;
+      if (yarns.length === 0 && specialYarns.length === 0) gameWon = true;
+
       requestAnimationFrame(gameLoop);
     }
 
     nuggetImg.onload = () => {
       initYarns();
+      bgMusic.play();
       gameLoop();
     };
   </script>
