@@ -39,9 +39,6 @@
     const startButton = document.getElementById("startButton");
 
     const TILE_SIZE = 32;
-    const ROWS = 16;
-    const COLS = 16;
-
     const map = [
       "################",
       "#......##......#",
@@ -78,7 +75,7 @@
 
     let player = {
       x: 1,
-      y: 1,
+      y: 3, // valid start tile
       dirX: 0,
       dirY: 0,
       nextDirX: 0,
@@ -240,11 +237,7 @@
 
     function gameLoop() {
       if (!gameStarted) return;
-
-      if (gameWon) {
-        showVictory();
-        return;
-      }
+      if (gameWon) return showVictory();
 
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       drawMap();
@@ -266,6 +259,7 @@
       initYarns();
       bgMusic.play();
       gameStarted = true;
+      window.focus();
       gameLoop();
     };
   </script>
