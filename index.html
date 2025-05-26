@@ -69,6 +69,9 @@
     const sfxYarn = new Audio("yarn_collect.mp3");
     const sfxSpecial = new Audio("powerup.mp3");
     const sfxMeow = new Audio("meow.mp3");
+    const sfxInvincible = new Audio("invincible_loop.mp3");
+    sfxInvincible.loop = true;
+
     const bgMusic = new Audio("bg_music.mp3");
     bgMusic.loop = true;
     bgMusic.volume = 0.3;
@@ -87,8 +90,8 @@
     let yarns = [];
     let specialYarns = [];
     let enemies = [
-      { x: 7, y: 7, moveCooldown: 0, alive: true },
-      { x: 8, y: 7, moveCooldown: 0, alive: true }
+      { x: 7, y: 7, moveCooldown: 0, alive: true, respawn: 0 },
+      { x: 8, y: 7, moveCooldown: 0, alive: true, respawn: 0 }
     ];
 
     let score = 0;
@@ -131,6 +134,10 @@
     }
 
     function drawPlayer() {
+      if (player.invincible > 0) {
+        ctx.fillStyle = "rgba(255, 255, 0, 0.4)";
+        ctx.fillRect(player.x * TILE_SIZE, player.y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+      }
       ctx.drawImage(nuggetImg, player.x * TILE_SIZE, player.y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
     }
 
@@ -175,10 +182,13 @@
       if (canMoveTo(targetX, targetY)) {
         player.x = targetX;
         player.y = targetY;
-        player.moveCooldown = 10;
+        player.moveCooldown = 20;
       }
 
-      if (player.invincible > 0) player.invincible--;
+      if (player.invincible > 0) {
+        player.invincible--;
+        if (player.invincible === 0) sfxInvincible.pause();
+      }
 
       yarns = yarns.filter(dot => {
         if (dot.x === player.x && dot.y === player.y) {
@@ -191,9 +201,10 @@
 
       specialYarns = specialYarns.filter(dot => {
         if (dot.x === player.x && dot.y === player.y) {
-          player.invincible = 300;
+          player.invincible = 600;
           score += 5;
           sfxSpecial.play();
+          sfxInvincible.play();
           return false;
         }
         return true;
@@ -202,12 +213,21 @@
 
     function updateEnemies() {
       enemies.forEach(e => {
+        if (e.respawn > 0) {
+          e.respawn--;
+          if (e.respawn === 0) {
+            e.x = 7 + Math.floor(Math.random() * 2);
+            e.y = 7;
+            e.alive = true;
+          }
+          return;
+        }
         if (!e.alive) return;
         if (e.moveCooldown > 0) {
           e.moveCooldown--;
           return;
         }
-        e.moveCooldown = 20; // slows down cats
+        e.moveCooldown = 20;
 
         let dx = player.x - e.x;
         let dy = player.y - e.y;
@@ -230,6 +250,7 @@
         if (e.x === player.x && e.y === player.y) {
           if (player.invincible > 0) {
             e.alive = false;
+            e.respawn = 600;
             sfxMeow.play();
           } else {
             alert("Game Over! Nugget got caught!");
